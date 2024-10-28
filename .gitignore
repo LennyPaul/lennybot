@@ -1,0 +1,41 @@
+# Node modules (tous les packages installés)
+node_modules/
+
+# Dossier de logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Fichiers de configuration environnementale
+.env
+
+# Dossiers spécifiques à l'IDE ou éditeur
+.vscode/
+.idea/
+
+# Système macOS
+.DS_Store
+
+# Thumbs.db (Windows)
+Thumbs.db
+
+# Historique du terminal shell
+.history
+
+# Configurations locales de déploiement ou production
+*.local
+
+# Process manager files (pm2)
+.pids
+pm2.log
+
+# Coverage output (tests)
+coverage/
+
+# Dossier de déploiement de Heroku
+.heroku/
+
+# Replit configuration
+.replit
