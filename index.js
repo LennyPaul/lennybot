@@ -74,7 +74,7 @@ async function createLeaderboardChannel(guild) {
         // Créer un embed pour afficher le leaderboard
         const leaderboardEmbed = new EmbedBuilder()
             .setTitle('🏆 Leaderboard des joueurs')
-            .setDescription('Classement des joueurs basé sur leur taux de victoires (winrate)')
+            .setDescription('Classement des joueurs basé sur leur elo')
             .setColor(0x00AE86)
             .setTimestamp()
             .setFooter({ text: 'Dernière mise à jour', iconURL: guild.iconURL() });
