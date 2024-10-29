@@ -304,6 +304,11 @@ client.on('interactionCreate', async interaction => {
         await interaction.reply({ content: "Vous ne pouvez rejoindre qu'une seule équipe. Veuillez quitter l'autre équipe avant de rejoindre celle-ci.", ephemeral: true });
         return;
     }
+    
+    if (parties[channelId][team][role] && parties[channelId][team][role] !== `<@${userId}>`) {
+        await interaction.reply({ content: `Le rôle ${role} dans l'équipe ${team} est déjà occupé par un autre joueur.`, ephemeral: true });
+        return;
+    }
 
     const currentRoleHolder = parties[channelId][team][role];
 
