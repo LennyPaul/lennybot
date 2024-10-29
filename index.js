@@ -201,6 +201,39 @@ client.on('interactionCreate', async interaction => {
         parties[channelId].messageId = recapMessage.id;
     }
 
+    if (commandName === 'random_game') {
+        const channelId = interaction.channel.id;
+
+        // Initialiser la partie pour une file d'attente aléatoire
+        parties[channelId] = {
+            players: [], // Liste des joueurs en attente
+            Blue: {},
+            Red: {},
+            messageId: null,
+            finished: false
+        };
+
+        // Envoyer le message d'attente
+        const queueMessage = await interaction.reply({
+            content: "Partie aléatoire créée ! Cliquez sur 'Rejoindre' pour entrer dans la file d'attente.\nFile d'attente (0/10)",
+            components: [
+                new ActionRowBuilder().addComponents(
+                    new ButtonBuilder()
+                        .setCustomId('join_random')
+                        .setLabel('Rejoindre')
+                        .setStyle(ButtonStyle.Primary),
+                    new ButtonBuilder()
+                        .setCustomId('leave_queue')
+                        .setLabel('Quitter')
+                        .setStyle(ButtonStyle.Danger)
+                )
+            ],
+            fetchReply: true
+        });
+
+        // Stocker l'ID du message pour les mises à jour
+        parties[channelId].messageId = queueMessage.id;
+    }
     // Commande pour créer le leaderboard
     if (commandName === 'leaderboard') {
         await interaction.deferReply({ ephemeral: true });
@@ -272,6 +305,137 @@ client.on('interactionCreate', async interaction => {
         return;
     }
 
+    if (interaction.customId === 'join_random') {
+        // Vérifier si le joueur est déjà dans la file d'attente
+        if (!devMode && parties[channelId].players.includes(userId)) {
+            await interaction.reply({ content: "Vous êtes déjà dans la file d'attente.", ephemeral: true });
+            return;
+        }
+    
+        // Vérifier si la file d'attente est déjà pleine
+        if (parties[channelId].players.length >= 10) {
+            await interaction.reply({ content: "La file d'attente est déjà complète.", ephemeral: true });
+            return;
+        }
+    
+        // Ajouter le joueur dans la file d'attente
+        parties[channelId].players.push(userId);
+    
+        // Afficher la liste des joueurs en file d'attente et le nombre sur 10
+        const playerMentions = parties[channelId].players.map(id => `<@${id}>`).join("\n");
+        const queueMessage = `File d'attente (${parties[channelId].players.length}/10) :\n${playerMentions}`;
+    
+        // Déterminer les composants (boutons) à afficher en fonction du nombre de joueurs
+        const joinButton = new ButtonBuilder()
+            .setCustomId('join_random')
+            .setLabel('Rejoindre')
+            .setStyle(ButtonStyle.Primary)
+            .setDisabled(parties[channelId].players.length >= 10); // Désactiver si 10 joueurs
+    
+        const leaveButton = new ButtonBuilder()
+            .setCustomId('leave_queue')
+            .setLabel('Quitter')
+            .setStyle(ButtonStyle.Danger);
+    
+        const formTeamsButton = new ButtonBuilder()
+            .setCustomId('form_teams')
+            .setLabel('Random')
+            .setStyle(ButtonStyle.Success)
+            .setDisabled(parties[channelId].players.length < 10); // Activer uniquement si 10 joueurs
+    
+        // Mettre à jour le message de la file d'attente
+        const queueMsg = await interaction.channel.messages.fetch(parties[channelId].messageId);
+        await queueMsg.edit({
+            content: "Partie aléatoire en attente ! Cliquez sur 'Rejoindre' pour entrer dans la file d'attente.\n" + queueMessage,
+            components: [
+                new ActionRowBuilder().addComponents(joinButton, leaveButton),
+                new ActionRowBuilder().addComponents(formTeamsButton)
+            ]
+        });
+    
+        await interaction.deferUpdate();
+    }
+    
+
+    if (interaction.customId === 'form_teams') {
+        if (!parties[channelId] || !parties[channelId].players || parties[channelId].players.length !== 10) {
+            await interaction.reply({ content: "Pas assez de joueurs pour former des équipes aléatoires ou partie non initialisée.", ephemeral: true });
+            return;
+        }
+    
+        // Mélanger les joueurs et diviser en équipes
+        const shuffledPlayers = [...parties[channelId].players].sort(() => Math.random() - 0.5);
+        const teamBlue = shuffledPlayers.slice(0, 5);
+        const teamRed = shuffledPlayers.slice(5);
+    
+        // Attribuer les rôles
+        const roles = ["TOP", "JGL", "MID", "ADC", "SUPP"];
+        roles.forEach((role, index) => {
+            parties[channelId].Blue[role] = `<@${teamBlue[index]}>`;
+            parties[channelId].Red[role] = `<@${teamRed[index]}>`;
+        });
+    
+        // Mettre à jour le message pour afficher les équipes et ajouter les boutons de rôles
+        const recapMessage = await interaction.channel.messages.fetch(parties[channelId].messageId);
+        await recapMessage.edit({
+            content: "Les équipes aléatoires ont été formées ! Cliquez sur un rôle pour gérer les équipes.\n\n",
+            embeds: [generateRecapEmbed(channelId)],
+            components: generateButtons(channelId) // Génère les boutons pour chaque rôle et les boutons de victoire
+        });
+    
+        // Vider la file d'attente
+        parties[channelId].players = [];
+    
+        await interaction.deferUpdate();
+    }
+
+    if (interaction.customId === 'leave_queue') {
+        // Vérifier si le joueur est dans la file d'attente
+        const playerIndex = parties[channelId].players.indexOf(userId);
+        if (playerIndex === -1) {
+            await interaction.reply({ content: "Vous n'êtes pas dans la file d'attente.", ephemeral: true });
+            return;
+        }
+    
+        // Retirer le joueur de la file d'attente
+        parties[channelId].players.splice(playerIndex, 1);
+    
+        // Afficher la nouvelle liste des joueurs en file d'attente
+        const playerMentions = parties[channelId].players.map(id => `<@${id}>`).join("\n");
+        const queueMessage = `File d'attente (${parties[channelId].players.length}/10) :\n${playerMentions}`;
+    
+        // Mettre à jour le message de la file d'attente
+        const queueMsg = await interaction.channel.messages.fetch(parties[channelId].messageId);
+        await queueMsg.edit({
+            content: "Partie aléatoire en attente ! Cliquez sur 'Rejoindre' pour entrer dans la file d'attente.\n" + queueMessage,
+            components: [
+                new ActionRowBuilder().addComponents(
+                    new ButtonBuilder()
+                        .setCustomId('join_random')
+                        .setLabel('Rejoindre')
+                        .setStyle(ButtonStyle.Primary),
+                    new ButtonBuilder()
+                        .setCustomId('leave_queue')
+                        .setLabel('Quitter')
+                        .setStyle(ButtonStyle.Danger)
+                ),
+                ...(parties[channelId].players.length === 10
+                    ? [new ActionRowBuilder().addComponents(
+                        new ButtonBuilder()
+                            .setCustomId('form_teams')
+                            .setLabel('Random')
+                            .setStyle(ButtonStyle.Success)
+                    )]
+                    : [])
+            ]
+        });
+    
+        await interaction.reply({ content: "Vous avez quitté la file d'attente.", ephemeral: true });
+    }
+    
+    
+
+
     if (role === 'WIN') {
         const otherTeam = team === 'Blue' ? 'Red' : 'Blue';
         parties[channelId].finished = true;
@@ -299,30 +463,35 @@ client.on('interactionCreate', async interaction => {
         return;
     }
 
-    const oppositeTeam = team === 'Blue' ? 'Red' : 'Blue';
-    if (!devMode && Object.values(parties[channelId][oppositeTeam]).includes(`<@${userId}>`)) {
-        await interaction.reply({ content: "Vous ne pouvez rejoindre qu'une seule équipe. Veuillez quitter l'autre équipe avant de rejoindre celle-ci.", ephemeral: true });
-        return;
+    
+    if (Object.hasOwn(parties[channelId], 'players') === false || parties[channelId].players.length === 0 &&  (team == 'Blue' || team == 'Red' )){
+        const oppositeTeam = team === 'Blue' ? 'Red' : 'Blue';
+        if (!devMode && Object.values(parties[channelId][oppositeTeam]).includes(`<@${userId}>`)) {
+            await interaction.reply({ content: "Vous ne pouvez rejoindre qu'une seule équipe. Veuillez quitter l'autre équipe avant de rejoindre celle-ci.", ephemeral: true });
+            return;
+        }
+        
+        if (parties[channelId][team][role] && parties[channelId][team][role] !== `<@${userId}>`) {
+            await interaction.reply({ content: `Le rôle ${role} dans l'équipe ${team} est déjà occupé par un autre joueur.`, ephemeral: true });
+            return;
+        }
+    
+        const currentRoleHolder = parties[channelId][team][role];
+    
+        if (currentRoleHolder === `<@${userId}>`) {
+            parties[channelId][team][role] = null;
+            await interaction.reply({ content: `Vous avez quitté ${team} pour le rôle ${role}.`, ephemeral: true });
+        } else if (!devMode && Object.values(parties[channelId][team]).includes(`<@${userId}>`)) {
+            await interaction.reply({ content: "Vous êtes déjà dans un rôle dans cette équipe. Veuillez quitter votre rôle actuel avant d'en rejoindre un autre.", ephemeral: true });
+        } else {
+            parties[channelId][team][role] = `<@${userId}>`;
+            await interaction.reply({ content: `Vous avez rejoint ${team} en tant que ${role}!`, ephemeral: true });
+        }
+        
+        updateButtons(interaction.channel, channelId);
     }
     
-    if (parties[channelId][team][role] && parties[channelId][team][role] !== `<@${userId}>`) {
-        await interaction.reply({ content: `Le rôle ${role} dans l'équipe ${team} est déjà occupé par un autre joueur.`, ephemeral: true });
-        return;
-    }
-
-    const currentRoleHolder = parties[channelId][team][role];
-
-    if (currentRoleHolder === `<@${userId}>`) {
-        parties[channelId][team][role] = null;
-        await interaction.reply({ content: `Vous avez quitté ${team} pour le rôle ${role}.`, ephemeral: true });
-    } else if (!devMode && Object.values(parties[channelId][team]).includes(`<@${userId}>`)) {
-        await interaction.reply({ content: "Vous êtes déjà dans un rôle dans cette équipe. Veuillez quitter votre rôle actuel avant d'en rejoindre un autre.", ephemeral: true });
-    } else {
-        parties[channelId][team][role] = `<@${userId}>`;
-        await interaction.reply({ content: `Vous avez rejoint ${team} en tant que ${role}!`, ephemeral: true });
-    }
-
-    updateButtons(interaction.channel, channelId);
+    
 });
 
 // Fonction pour générer l'embed du récapitulatif des équipes

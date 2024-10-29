@@ -8,6 +8,10 @@ const commands = [
         description: 'Crée une nouvelle partie',
     },
     {
+        name: 'random_game',
+        description: 'Crée une partie avec des équipes aléatoires'
+    },
+    {
         name: 'dev_on',
         description: 'Active le mode développement',
         options: [
