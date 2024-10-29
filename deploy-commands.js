@@ -26,6 +26,41 @@ const commands = [
     {
         name: 'leaderboard',
         description: 'Crée ou met à jour le channel leaderboard avec le classement des joueurs par winrate',
+    },
+    {
+        name: 'assign_role',
+        description: "Assigne un joueur à une équipe et un rôle dans une partie",
+        options: [
+            {
+                name: 'joueur',
+                description: "Le joueur à assigner",
+                type: 6, // Type 6 = USER
+                required: true,
+            },
+            {
+                name: 'equipe',
+                description: "L'équipe à assigner (Blue ou Red)",
+                type: 3, // Type 3 = STRING
+                required: true,
+                choices: [
+                    { name: 'Blue', value: 'Blue' },
+                    { name: 'Red', value: 'Red' }
+                ]
+            },
+            {
+                name: 'role',
+                description: "Le rôle à assigner",
+                type: 3, // Type 3 = STRING
+                required: true,
+                choices: [
+                    { name: 'TOP', value: 'TOP' },
+                    { name: 'JGL', value: 'JGL' },
+                    { name: 'MID', value: 'MID' },
+                    { name: 'ADC', value: 'ADC' },
+                    { name: 'SUPP', value: 'SUPP' }
+                ]
+            }
+        ]
     }
 ];
 

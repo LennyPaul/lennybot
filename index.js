@@ -206,6 +206,31 @@ client.on('interactionCreate', async interaction => {
         await interaction.followUp({ content: 'Le leaderboard a été mis à jour.', ephemeral: true });
     }
 
+    if (commandName === 'assign_role') {
+        const channelId = interaction.channel.id;
+        const joueur = interaction.options.getUser('joueur');
+        const equipe = interaction.options.getString('equipe');
+        const role = interaction.options.getString('role');
+
+        if (!parties[channelId]) {
+            await interaction.reply({ content: "Aucune partie active dans ce canal. Utilisez /new_game pour en créer une.", ephemeral: true });
+            return;
+        }
+
+        // Vérifier si le rôle est déjà occupé
+        if (parties[channelId][equipe][role]) {
+            await interaction.reply({ content: `Le rôle ${role} dans l'équipe ${equipe} est déjà occupé.`, ephemeral: true });
+            return;
+        }
+
+        // Assigner le joueur au rôle et à l'équipe spécifiés
+        parties[channelId][equipe][role] = `<@${joueur.id}>`;
+        await interaction.reply({ content: `${joueur} a été assigné au rôle ${role} dans l'équipe ${equipe}.`, ephemeral: false });
+
+        // Mettre à jour l'affichage des équipes
+        updateButtons(interaction.channel, channelId);
+    }
+
     // Activation du mode dev
     if (commandName === 'dev_on') {
         const password = interaction.options.getString('password');
