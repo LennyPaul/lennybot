@@ -24,7 +24,7 @@ async function getLeaderboard() {
     const joueursCollection = db.collection('joueurs');
     const joueurs = await joueursCollection.find().toArray();
 
-    // Calculer le winrate pour chaque joueur et trier par winrate décroissant
+    // Calculer le winrate pour chaque joueur et trier par elo décroissant
     const leaderboard = joueurs
         .map(joueur => {
             const totalGames = joueur.victoires + joueur.defaites;
@@ -33,10 +33,11 @@ async function getLeaderboard() {
                 discordId: joueur.discordId,
                 victoires: joueur.victoires,
                 defaites: joueur.defaites,
+                elo: joueur.elo,
                 winrate: winrate.toFixed(2)  // Garder deux décimales
             };
         })
-        .sort((a, b) => b.winrate - a.winrate);
+        .sort((a, b) => b.elo - a.elo);  // Trier par elo décroissant
 
     return leaderboard;
 }
@@ -103,7 +104,6 @@ async function createLeaderboardChannel(guild) {
     }
 }
 
-
 // Enregistrement des statistiques de chaque joueur
 async function enregistrerStatistiquesJoueurs(channelId, gagnant) {
     const partie = parties[channelId];
@@ -111,7 +111,6 @@ async function enregistrerStatistiquesJoueurs(channelId, gagnant) {
 
     const equipes = { gagnante: partie[gagnant], perdante: partie[gagnant === 'Blue' ? 'Red' : 'Blue'] };
 
-    // Mise à jour pour chaque équipe
     for (const [statut, equipe] of Object.entries(equipes)) {
         const isWin = statut === 'gagnante';
 
@@ -121,21 +120,23 @@ async function enregistrerStatistiquesJoueurs(channelId, gagnant) {
                 try {
                     const joueur = await joueursCollection.findOne({ discordId: joueurId });
                     if (joueur) {
-                        // Mettre à jour les statistiques existantes
+                        // Mettre à jour les victoires, défaites et l'elo
                         const update = {
                             $inc: {
                                 victoires: isWin ? 1 : 0,
-                                defaites: isWin ? 0 : 1
+                                defaites: isWin ? 0 : 1,
+                                elo: isWin ? 25 : -15
                             }
                         };
                         await joueursCollection.updateOne({ discordId: joueurId }, update);
                         console.log(`Statistiques mises à jour pour ${joueurId}`);
                     } else {
-                        // Créer un nouveau joueur
+                        // Créer un nouveau joueur avec un elo initial de 200
                         const nouveauJoueur = {
                             discordId: joueurId,
                             victoires: isWin ? 1 : 0,
-                            defaites: isWin ? 0 : 1
+                            defaites: isWin ? 0 : 1,
+                            elo: 200 + (isWin ? 25 : -15)
                         };
                         await joueursCollection.insertOne(nouveauJoueur);
                         console.log(`Nouveau joueur créé : ${joueurId}`);
@@ -147,6 +148,7 @@ async function enregistrerStatistiquesJoueurs(channelId, gagnant) {
         }
     }
 }
+
 
 // Enregistrement d'une partie dans la base MongoDB
 async function enregistrerPartie(channelId, gagnant) {
